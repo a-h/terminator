@@ -2,6 +2,7 @@ package main
 
 import (
 	"reflect"
+	"sort"
 	"testing"
 
 	"github.com/a-h/terminator/integration"
@@ -149,7 +150,9 @@ func TestSuite(t *testing.T) {
 		terminate(mp, test.p)
 
 		// Assert.
-		if !reflect.DeepEqual(mp.TerminatedInstances, test.expectedTerminations) {
+		sortedActualTerminations := sort.StringSlice(mp.TerminatedInstances)
+		sortedExpectedTerminations := sort.StringSlice(test.expectedTerminations)
+		if !reflect.DeepEqual(sortedActualTerminations, sortedExpectedTerminations) {
 			t.Errorf("For test \"%s\" with paramaters %-v and custom version map %-v, expected %-v to be terminated, but got %-v",
 				test.name, test.p, test.customVersions, test.expectedTerminations, mp.TerminatedInstances)
 		}

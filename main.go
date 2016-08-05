@@ -54,7 +54,7 @@ func terminate(cloud integration.CloudProvider, p parameters) []string {
 	groups, err := cloud.DescribeAutoScalingGroups()
 
 	if err != nil {
-		fmt.Println("failed to get the description of all autoscaling groups,", err)
+		fmt.Println("Failed to get the description of all autoscaling groups, ", err)
 		return terminatedInstances
 	}
 
@@ -73,7 +73,7 @@ func terminate(cloud integration.CloudProvider, p parameters) []string {
 				instancesToTerminate, err = getOldestVersions(cloud, healthy, maximumOldVersions, p.scheme, p.port, p.versionURL)
 
 				if err != nil {
-					fmt.Printf("%s => failed to get version data with error %-v", g.Name, err)
+					fmt.Printf("%s => failed to get version data with error %-v\n", g.Name, err)
 				}
 			} else {
 				instancesToTerminate = append(healthy[p.minimumInstanceCount:], unhealthy...)
@@ -86,7 +86,7 @@ func terminate(cloud integration.CloudProvider, p parameters) []string {
 			fmt.Printf("%s => terminating instance ids %-v\n", g.Name, ids)
 
 			if p.isDryRun {
-				fmt.Printf("%s => no action taken, set --isDryRun=true to execute", g.Name)
+				fmt.Printf("%s => no action taken, set --isDryRun=false to execute\n", g.Name)
 			} else {
 				terminatedInstances = append(terminatedInstances, ids...)
 				err = cloud.TerminateInstances(ids)
@@ -98,7 +98,7 @@ func terminate(cloud integration.CloudProvider, p parameters) []string {
 				}
 			}
 		} else {
-			fmt.Printf("%s => no action taken.\n", g.Name)
+			fmt.Printf("%s => no action taken\n", g.Name)
 		}
 	}
 
