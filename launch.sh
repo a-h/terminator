@@ -1,6 +1,4 @@
 #/bin/bash
-ECHO building
+ECHO building for Linux
 GOOS=linux GOARCH=amd64 go build ./...
-ECHO copying
-cp terminator ~/Documents/mywestfield/Infrastructure/
 ECHO "done"
