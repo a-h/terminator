@@ -1,7 +1,7 @@
-AWS Lambda Terminator
-=====================
+AWS Terminator
+==============
 
-A Go program which terminates healthy instances from autoscaling groups.
+A Go program which terminates healthy instances from autoscaling groups based on version rules.
 
 To build a static binary to run on AWS from your Mac or Windows PC.
 
