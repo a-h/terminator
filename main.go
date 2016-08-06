@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"sort"
 
 	"github.com/a-h/terminator/integration"
 	"github.com/blang/semver"
@@ -66,30 +67,29 @@ func terminate(cloud integration.CloudProvider, p parameters) []string {
 			g.Name, len(healthy), len(unhealthy))
 
 		if len(healthy) > p.minimumInstanceCount {
-			var instancesToTerminate []integration.Instance
+			var instanceIdsToTerminate []string
 
 			if p.onlyTerminateOldVersions {
 				maximumOldVersions := len(healthy) - p.minimumInstanceCount
-				instancesToTerminate, err = getOldestVersions(cloud, healthy, maximumOldVersions, p.scheme, p.port, p.versionURL)
+				instanceIdsToTerminate, err = getOldestIDs(cloud, healthy, p.scheme, p.port, p.versionURL, maximumOldVersions)
 
 				if err != nil {
 					fmt.Printf("%s => failed to get version data with error %-v\n", g.Name, err)
 				}
 			} else {
-				instancesToTerminate = append(healthy[p.minimumInstanceCount:], unhealthy...)
+				instancesToTerminate := append(healthy[p.minimumInstanceCount:], unhealthy...)
+				instanceIdsToTerminate = getInstanceIDs(instancesToTerminate)
 			}
 
-			fmt.Printf("%s => terminating %d of %d instances\n", g.Name, len(instancesToTerminate), len(g.Instances))
+			fmt.Printf("%s => terminating %d of %d instances\n", g.Name, len(instanceIdsToTerminate), len(g.Instances))
 
-			ids := getInstanceIDs(instancesToTerminate)
-
-			fmt.Printf("%s => terminating instance ids %-v\n", g.Name, ids)
+			fmt.Printf("%s => terminating instance ids %-v\n", g.Name, instanceIdsToTerminate)
 
 			if p.isDryRun {
 				fmt.Printf("%s => no action taken, set --isDryRun=false to execute\n", g.Name)
 			} else {
-				terminatedInstances = append(terminatedInstances, ids...)
-				err = cloud.TerminateInstances(ids)
+				terminatedInstances = append(terminatedInstances, instanceIdsToTerminate...)
+				err = cloud.TerminateInstances(instanceIdsToTerminate)
 
 				if err != nil {
 					fmt.Printf("%s => failed to terminate instances with error - %s\n", g.Name, err)
@@ -143,34 +143,71 @@ func getInstanceIDs(instances []integration.Instance) []string {
 	return ids
 }
 
-func getOldestVersions(cloud integration.CloudProvider, instances []integration.Instance, maximumOldVersions int, scheme string, port int, path string) ([]integration.Instance, error) {
-	instanceToVersionMap := make(map[integration.Instance]semver.Version)
+func getOldestIDs(cloud integration.CloudProvider, instances []integration.Instance, scheme string, port int, path string, maximumInstances int) ([]string, error) {
+	details, err := getDetails(cloud, instances, scheme, port, path)
 
-	var highestVersion semver.Version
+	if err != nil {
+		return nil, err
+	}
+
+	details = getOldestVersions(details, maximumInstances)
+
+	ids := make([]string, len(details))
+
+	for i, v := range details {
+		ids[i] = v.ID
+	}
+
+	return ids, err
+}
+
+func getDetails(cloud integration.CloudProvider, instances []integration.Instance, scheme string, port int, path string) (integration.InstanceDetails, error) {
+	details := integration.InstanceDetails{}
+
 	for _, instance := range instances {
-		vn, err := cloud.GetVersionNumber(instance.ID, scheme, port, path)
+		detail, err := cloud.GetDetail(instance.ID, scheme, port, path)
 
 		if err != nil {
 			return nil, err
 		}
 
-		v, err := semver.Make(vn)
-
-		if v.GT(highestVersion) {
-			highestVersion = v
-		}
-
-		instanceToVersionMap[instance] = v
+		details = append(details, *detail)
 	}
 
-	// Collect N old versions.
-	oldInstances := []integration.Instance{}
+	sort.Sort(details)
 
-	for k, v := range instanceToVersionMap {
-		if v.LT(highestVersion) {
-			oldInstances = append(oldInstances, k)
+	return details, nil
+}
+
+func getOldestVersions(details integration.InstanceDetails, maximumOldVersions int) integration.InstanceDetails {
+	var highestVersion semver.Version
+	for _, instance := range details {
+		if instance.VersionNumber.GT(highestVersion) {
+			highestVersion = instance.VersionNumber
 		}
 	}
 
-	return oldInstances, nil
+	// Collect instances which don't have the latest version.
+	oldInstances := integration.InstanceDetails{}
+
+	for _, instance := range details {
+		if instance.VersionNumber.LT(highestVersion) {
+			oldInstances = append(oldInstances, instance)
+		}
+	}
+
+	fmt.Printf("Old instances: %+v\n", oldInstances)
+
+	// Sort them by version and age to delete the old ones first.
+	sort.Sort(oldInstances)
+
+	return takeAtMost(oldInstances, maximumOldVersions)
+}
+
+func takeAtMost(details integration.InstanceDetails, most int) integration.InstanceDetails {
+	if len(details) <= most {
+		return details
+	}
+
+	return details[:most]
 }

@@ -5,24 +5,26 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/blang/semver"
 )
 
 // CloudProvider provides all of the methods required to integrate with AWS.
 type CloudProvider interface {
 	// DescribeAutoScalingGroups provides information about the available auto-scaling groups.
 	DescribeAutoScalingGroups() ([]AutoScalingGroup, error)
-	// GetVersionNumber returns the version number returned by hitting the provided endpoint in the form:
-	// {scheme}://{ec2.private_ip}:{port}{endpoint}
+	// GetDetail returns the launch time and version number returned by accessing the EC2 API and
+	// hitting the provided endpoint in the form {scheme}://{ec2.private_ip}:{port}{endpoint}
 	// instanceID refers to the ID of the AWS EC2 instance
 	// scheme is the protocol - http or https
 	// port is the TCP port, e.g. 80 or 443
 	// URL is the URL e.g. /version
-	GetVersionNumber(instanceID string, scheme string, port int, endpoint string) (string, error)
+	GetDetail(instanceID string, scheme string, port int, endpoint string) (*InstanceDetail, error)
 	// TerminateInstances terminates the given instances.
 	TerminateInstances(instanceIDs []string) error
 }
@@ -92,16 +94,15 @@ func (p *AWSProvider) DescribeAutoScalingGroups() ([]AutoScalingGroup, error) {
 	return rv, err
 }
 
-// GetVersionNumber returns the version number returned by hitting the provided endpoint in the form:
-func (p *AWSProvider) GetVersionNumber(instanceID string, scheme string, port int, endpoint string) (string, error) {
-	//TODO: Use EC2 to get the version number.
+// GetDetail returns information about the instance.
+func (p *AWSProvider) GetDetail(instanceID string, scheme string, port int, endpoint string) (*InstanceDetail, error) {
 	svc := ec2.New(p.session)
 	instances, err := svc.DescribeInstances(&ec2.DescribeInstancesInput{
 		InstanceIds: convert([]string{instanceID}),
 	})
 
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	for _, reservation := range instances.Reservations {
@@ -112,20 +113,52 @@ func (p *AWSProvider) GetVersionNumber(instanceID string, scheme string, port in
 			u, err := url.Parse(complete)
 
 			if err != nil {
-				return "", fmt.Errorf("Failed to parse URL %s - %-v", complete, err)
+				return nil, fmt.Errorf("Failed to parse URL %s - %-v", complete, err)
 			}
 
 			versionNumber, err := getURL(u.String())
 
 			if err != nil {
-				return "", fmt.Errorf("Failed to get version number from URL %s with error %-v", complete, err)
+				return nil, fmt.Errorf("Failed to get version number from URL %s with error %-v", complete, err)
 			}
 
-			return versionNumber, nil
+			version, err := semver.Make(versionNumber)
+
+			if err != nil {
+				return nil, fmt.Errorf("Failed to understand the version number %s with error %-v", versionNumber, err)
+			}
+
+			return &InstanceDetail{
+				ID:            instanceID,
+				VersionNumber: version,
+				LaunchTime:    aws.TimeValue(instance.LaunchTime),
+			}, nil
 		}
 	}
 
-	return "", nil
+	return nil, fmt.Errorf("Could not find an instance with id %s", instanceID)
+}
+
+// InstanceDetail provides information about the instance from EC2.
+type InstanceDetail struct {
+	ID            string
+	VersionNumber semver.Version
+	LaunchTime    time.Time
+}
+
+// InstanceDetails implements a sorted type for InstanceDetail.
+type InstanceDetails []InstanceDetail
+
+func (slice InstanceDetails) Len() int {
+	return len(slice)
+}
+
+func (slice InstanceDetails) Less(i, j int) bool {
+	return slice[i].VersionNumber.LT(slice[j].VersionNumber) || slice[i].LaunchTime.Before(slice[j].LaunchTime)
+}
+
+func (slice InstanceDetails) Swap(i, j int) {
+	slice[i], slice[j] = slice[j], slice[i]
 }
 
 func getURL(url string) (string, error) {
