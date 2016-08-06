@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/a-h/terminator/integration"
 	"github.com/blang/semver"
@@ -63,8 +64,10 @@ func terminate(cloud integration.CloudProvider, p parameters) []string {
 	for _, g := range groups {
 		healthy, unhealthy := categoriseInstances(g.Instances, p.minimumInstanceCount)
 
-		fmt.Printf("%s => %d healthy instances, %d unhealthy instances\n",
-			g.Name, len(healthy), len(unhealthy))
+		fmt.Printf("%s => %d healthy instances, %d unhealthy instances => healthy: %+v - unhealthy: %+v\n",
+			g.Name, len(healthy), len(unhealthy),
+			healthy,
+			unhealthy)
 
 		if len(healthy) > p.minimumInstanceCount {
 			var instanceIdsToTerminate []string
@@ -121,9 +124,7 @@ func categoriseInstances(instances []integration.Instance, minimumInstanceCount 
 	otherInstances = []integration.Instance{}
 
 	for _, instance := range instances {
-		hs := instance.HealthStatus
-		ls := instance.LifecycleState
-		if hs == "HEALTHY" && ls == "InService" {
+		if isHealthy(instance) {
 			healthyInstances = append(healthyInstances, instance)
 		} else {
 			otherInstances = append(otherInstances, instance)
@@ -131,6 +132,11 @@ func categoriseInstances(instances []integration.Instance, minimumInstanceCount 
 	}
 
 	return healthyInstances, otherInstances
+}
+
+func isHealthy(instance integration.Instance) bool {
+	return strings.EqualFold(instance.HealthStatus, "Healthy") &&
+		strings.EqualFold(instance.LifecycleState, "InService")
 }
 
 func getInstanceIDs(instances []integration.Instance) []string {

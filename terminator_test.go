@@ -10,6 +10,40 @@ import (
 	"github.com/blang/semver"
 )
 
+func testIsHealthy(t *testing.T) {
+	instances := []integration.Instance{
+		integration.Instance{
+			ID:             "A",
+			LifecycleState: "InService",
+			HealthStatus:   "Healthy",
+		},
+		integration.Instance{
+			ID:             "B",
+			LifecycleState: "OutOfService",
+			HealthStatus:   "Healthy",
+		},
+		integration.Instance{
+			ID:             "C",
+			LifecycleState: "InService",
+			HealthStatus:   "Unhealthy",
+		},
+	}
+
+	actual := make([]bool, len(instances))
+
+	for idx, in := range instances {
+		actual[idx] = isHealthy(in)
+	}
+
+	expected := []bool{true, false, false}
+
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("Expected the health of instances %+v to be %+v, but was %+v",
+			instances,
+			expected, actual)
+	}
+}
+
 func createTestData(customVersions map[string]string, customTimes map[string]time.Time) *MockProvider {
 	groups := []integration.AutoScalingGroup{
 		integration.AutoScalingGroup{
@@ -18,17 +52,17 @@ func createTestData(customVersions map[string]string, customTimes map[string]tim
 				integration.Instance{
 					ID:             "A",
 					LifecycleState: "InService",
-					HealthStatus:   "HEALTHY",
+					HealthStatus:   "Healthy",
 				},
 				integration.Instance{
 					ID:             "B",
 					LifecycleState: "InService",
-					HealthStatus:   "HEALTHY",
+					HealthStatus:   "Healthy",
 				},
 				integration.Instance{
 					ID:             "C",
 					LifecycleState: "OutOfService",
-					HealthStatus:   "HEALTHY",
+					HealthStatus:   "Healthy",
 				},
 			},
 		},
@@ -38,22 +72,22 @@ func createTestData(customVersions map[string]string, customTimes map[string]tim
 				integration.Instance{
 					ID:             "D",
 					LifecycleState: "InService",
-					HealthStatus:   "HEALTHY",
+					HealthStatus:   "Healthy",
 				},
 				integration.Instance{
 					ID:             "E",
 					LifecycleState: "InService",
-					HealthStatus:   "HEALTHY",
+					HealthStatus:   "Healthy",
 				},
 				integration.Instance{
 					ID:             "F",
 					LifecycleState: "InService",
-					HealthStatus:   "HEALTHY",
+					HealthStatus:   "Healthy",
 				},
 				integration.Instance{
 					ID:             "G",
 					LifecycleState: "InService",
-					HealthStatus:   "HEALTHY",
+					HealthStatus:   "Healthy",
 				},
 			},
 		},
