@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -120,6 +121,11 @@ func (p *AWSProvider) GetDetail(instanceID string, scheme string, port int, endp
 
 			if err != nil {
 				return nil, fmt.Errorf("Failed to get version number from URL %s with error %-v", complete, err)
+			}
+
+			// Trim v from any version number returned from a URL.
+			if strings.HasPrefix(versionNumber, "v") {
+				versionNumber = versionNumber[1:]
 			}
 
 			version, err := semver.Make(versionNumber)

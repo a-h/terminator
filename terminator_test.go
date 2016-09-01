@@ -429,6 +429,15 @@ func TestSortingInstanceDetailsByTime(t *testing.T) {
 	}
 }
 
+func TestSemverParsingFromGitDescribe(t *testing.T) {
+	// Test the output from `git describe --tags --long`
+	_, err := semver.New("0.0.3-0-g03d102e")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestSortingInstanceDetailsByTimeAndVersion(t *testing.T) {
 	v1, _ := semver.New("1.0.0")
 	v2, _ := semver.New("2.0.0")
