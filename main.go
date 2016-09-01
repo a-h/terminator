@@ -29,6 +29,8 @@ type parameters struct {
 }
 
 func main() {
+	flag.Parse()
+
 	aws, err := integration.NewAWSProvider(*regionFlag)
 
 	if err != nil {
