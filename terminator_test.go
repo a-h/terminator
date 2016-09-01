@@ -388,7 +388,15 @@ func TestGetOldestVersions(t *testing.T) {
 		},
 	}
 
-	result := getOldestVersions(details, 1)
+	lowest, highest, result := getOldestVersions(details, 1)
+
+	if !lowest.EQ(*oldVersion) {
+		t.Errorf("The lowest version should be %-v but was %-v", oldVersion, lowest)
+	}
+
+	if !highest.EQ(*newVersion) {
+		t.Errorf("The highest version should be %-v but was %-v", newVersion, highest)
+	}
 
 	if len(result) != 1 || result[0].ID != "B" {
 		t.Errorf("Only the single oldest instance with the old version should be returned but %+v was returned.", result)

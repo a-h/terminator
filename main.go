@@ -76,11 +76,15 @@ func terminate(cloud integration.CloudProvider, p parameters) []string {
 
 			if p.onlyTerminateOldVersions {
 				maximumOldVersions := len(healthy) - p.minimumInstanceCount
-				instanceIdsToTerminate, err = getOldestIDs(cloud, healthy, p.scheme, p.port, p.versionURL, maximumOldVersions)
+				var lowestVersion, highestVersion semver.Version
+				var err error
+				lowestVersion, highestVersion, instanceIdsToTerminate, err = getOldestIDs(cloud, healthy, p.scheme, p.port, p.versionURL, maximumOldVersions)
 
 				if err != nil {
 					fmt.Printf("%s => failed to get version data with error %-v\n", g.Name, err)
 				}
+
+				fmt.Printf("%s => lowest version %-v, highest version %-v\n", g.Name, lowestVersion, highestVersion)
 			} else {
 				instancesToTerminate := append(healthy[p.minimumInstanceCount:], unhealthy...)
 				instanceIdsToTerminate = getInstanceIDs(instancesToTerminate)
@@ -151,22 +155,22 @@ func getInstanceIDs(instances []integration.Instance) []string {
 	return ids
 }
 
-func getOldestIDs(cloud integration.CloudProvider, instances []integration.Instance, scheme string, port int, path string, maximumInstances int) ([]string, error) {
+func getOldestIDs(cloud integration.CloudProvider, instances []integration.Instance, scheme string, port int, path string, maximumInstances int) (lowestVersion semver.Version, highestVersion semver.Version, ids []string, err error) {
 	details, err := getDetails(cloud, instances, scheme, port, path)
 
 	if err != nil {
-		return nil, err
+		return semver.Version{}, semver.Version{}, nil, err
 	}
 
-	details = getOldestVersions(details, maximumInstances)
+	lowestVersion, highestVersion, details = getOldestVersions(details, maximumInstances)
 
-	ids := make([]string, len(details))
+	ids = make([]string, len(details))
 
 	for i, v := range details {
 		ids[i] = v.ID
 	}
 
-	return ids, err
+	return lowestVersion, highestVersion, ids, err
 }
 
 func getDetails(cloud integration.CloudProvider, instances []integration.Instance, scheme string, port int, path string) (integration.InstanceDetails, error) {
@@ -187,8 +191,7 @@ func getDetails(cloud integration.CloudProvider, instances []integration.Instanc
 	return details, nil
 }
 
-func getOldestVersions(details integration.InstanceDetails, maximumOldVersions int) integration.InstanceDetails {
-	var highestVersion semver.Version
+func getOldestVersions(details integration.InstanceDetails, maximumOldVersions int) (lowestVersion semver.Version, highestVersion semver.Version, filtered integration.InstanceDetails) {
 	for _, instance := range details {
 		if instance.VersionNumber.GT(highestVersion) {
 			highestVersion = instance.VersionNumber
@@ -196,20 +199,23 @@ func getOldestVersions(details integration.InstanceDetails, maximumOldVersions i
 	}
 
 	// Collect instances which don't have the latest version.
+	lowestVersion = highestVersion
 	oldInstances := integration.InstanceDetails{}
 
 	for _, instance := range details {
 		if instance.VersionNumber.LT(highestVersion) {
 			oldInstances = append(oldInstances, instance)
 		}
-	}
 
-	fmt.Printf("Old instances: %+v\n", oldInstances)
+		if instance.VersionNumber.LT(lowestVersion) {
+			lowestVersion = instance.VersionNumber
+		}
+	}
 
 	// Sort them by version and age to delete the old ones first.
 	sort.Sort(oldInstances)
 
-	return takeAtMost(oldInstances, maximumOldVersions)
+	return lowestVersion, highestVersion, takeAtMost(oldInstances, maximumOldVersions)
 }
 
 func takeAtMost(details integration.InstanceDetails, most int) integration.InstanceDetails {
