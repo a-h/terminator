@@ -117,6 +117,19 @@ func TestSuite(t *testing.T) {
 			expectedTerminations: []string{"A", "B", "C", "D", "E", "F", "G"},
 		},
 		{
+			name:           "Only delete items in Group2, because of the filter.",
+			customVersions: map[string]string{},
+			p: parameters{
+				region:                   "europa-westmoreland-1",
+				minimumInstanceCount:     0,
+				onlyTerminateOldVersions: false,
+				versionURL:               "",
+				isDryRun:                 false,
+				autoScalingGroups:        []string{"group2"}, // Filter to Group1 and Group2
+			},
+			expectedTerminations: []string{"D", "E", "F", "G"},
+		},
+		{
 			name:           "Don't delete if isDryRun is set to true.",
 			customVersions: map[string]string{},
 			p: parameters{
@@ -482,5 +495,27 @@ func TestSortingInstanceDetailsByTimeAndVersion(t *testing.T) {
 	expected := []string{"B", "C", "A"}
 	if !reflect.DeepEqual(orderedIds, expected) {
 		t.Errorf("Expected %+v but got %+v", expected, orderedIds)
+	}
+}
+
+func TestFilterByName(t *testing.T) {
+	grps := []integration.AutoScalingGroup{
+		integration.AutoScalingGroup{
+			Name: "A",
+		},
+		integration.AutoScalingGroup{
+			Name: "B",
+		},
+		integration.AutoScalingGroup{
+			Name: "C",
+		},
+	}
+
+	filter := []string{"c"}
+
+	result := filterByName(grps, filter)
+
+	if len(result) != 1 && result[0].Name != "C" {
+		t.Error("The result was not filtered.")
 	}
 }

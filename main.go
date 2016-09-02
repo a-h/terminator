@@ -16,7 +16,15 @@ var minimumInstanceCountFlag = flag.Int("minimumInstanceCount", 1, "Specifies th
 var onlyTerminateOldVersionsFlag = flag.Bool("terminateOldVersions", true, "When set to true, the program checks the version URL. If all versions match, no action is taken. If the versions don't match, instances with the oldest version numbers are terminated.")
 var schemeFlag = flag.String("scheme", "http", "Chooses the scheme, e.g. http or https.")
 var portFlag = flag.Int("port", 80, "The TCP port to run communications over.")
-var versionURLFlag = flag.String("path", "/Version/", "Specifies the URL path which will be connected to (after the private IP address of the instance. The expectation is a version number should be returned, e.g. 1.1.4")
+var versionURLFlag = flag.String("path", "/version/", "Specifies the URL path which will be connected to (after the private IP address of the instance. The expectation is a version number should be returned, e.g. 1.1.4")
+
+var autoScalingGroupsFlag autoScalingGroups
+
+func init() {
+	// Tie the command-line flag to the intervalFlag variable and
+	// set a usage message.
+	flag.Var(&autoScalingGroupsFlag, "", "Comma-separated list of autoscaling group names.")
+}
 
 type parameters struct {
 	region                   string
@@ -26,6 +34,7 @@ type parameters struct {
 	scheme                   string
 	port                     int
 	versionURL               string
+	autoScalingGroups        autoScalingGroups
 }
 
 func main() {
@@ -43,9 +52,10 @@ func main() {
 		isDryRun:                 *isDryRunFlag,
 		minimumInstanceCount:     *minimumInstanceCountFlag,
 		onlyTerminateOldVersions: *onlyTerminateOldVersionsFlag,
-		scheme:     *schemeFlag,
-		port:       *portFlag,
-		versionURL: *versionURLFlag,
+		scheme:            *schemeFlag,
+		port:              *portFlag,
+		versionURL:        *versionURLFlag,
+		autoScalingGroups: autoScalingGroupsFlag,
 	}
 
 	terminate(aws, p)
@@ -55,14 +65,21 @@ func main() {
 func terminate(cloud integration.CloudProvider, p parameters) []string {
 	terminatedInstances := []string{}
 
-	groups, err := cloud.DescribeAutoScalingGroups()
+	allGroups, err := cloud.DescribeAutoScalingGroups()
 
 	if err != nil {
 		fmt.Println("Failed to get the description of all autoscaling groups, ", err)
 		return terminatedInstances
 	}
 
-	fmt.Printf("Retrieved information on groups %-v.\n", getGroupNames(groups))
+	groups := filterByName(allGroups, p.autoScalingGroups)
+
+	if len(p.autoScalingGroups) > 0 {
+		fmt.Printf("Filtering groups %-v by expression %-v.\n", getGroupNames(groups), p.autoScalingGroups)
+	}
+
+	fmt.Printf("Working on groups %-v.\n", getGroupNames(groups))
+
 	for _, g := range groups {
 		healthy, unhealthy := categoriseInstances(g.Instances, p.minimumInstanceCount)
 
@@ -75,6 +92,8 @@ func terminate(cloud integration.CloudProvider, p parameters) []string {
 			var instanceIdsToTerminate []string
 
 			if p.onlyTerminateOldVersions {
+				fmt.Printf("%s => only terminating old versions\n", g.Name)
+
 				maximumOldVersions := len(healthy) - p.minimumInstanceCount
 				var lowestVersion, highestVersion semver.Version
 				var err error
@@ -86,6 +105,8 @@ func terminate(cloud integration.CloudProvider, p parameters) []string {
 
 				fmt.Printf("%s => lowest version %-v, highest version %-v\n", g.Name, lowestVersion, highestVersion)
 			} else {
+				fmt.Printf("%s => terminating oldest instances\n", g.Name)
+
 				instancesToTerminate := append(healthy[p.minimumInstanceCount:], unhealthy...)
 				instanceIdsToTerminate = getInstanceIDs(instancesToTerminate)
 			}
@@ -123,6 +144,24 @@ func getGroupNames(grps []integration.AutoScalingGroup) []string {
 	}
 
 	return names
+}
+
+func filterByName(grps []integration.AutoScalingGroup, namesToInclude []string) []integration.AutoScalingGroup {
+	if len(namesToInclude) == 0 {
+		return grps
+	}
+
+	op := []integration.AutoScalingGroup{}
+
+	for _, g := range grps {
+		for _, n := range namesToInclude {
+			if strings.EqualFold(g.Name, n) {
+				op = append(op, g)
+			}
+		}
+	}
+
+	return op
 }
 
 func categoriseInstances(instances []integration.Instance, minimumInstanceCount int) (healthyInstances []integration.Instance, otherInstances []integration.Instance) {
