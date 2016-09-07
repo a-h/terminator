@@ -23,7 +23,7 @@ var autoScalingGroupsFlag autoScalingGroups
 func init() {
 	// Tie the command-line flag to the intervalFlag variable and
 	// set a usage message.
-	flag.Var(&autoScalingGroupsFlag, "", "Comma-separated list of autoscaling group names.")
+	flag.Var(&autoScalingGroupsFlag, "autoScalingGroups", "Comma-separated list of autoscaling group names.")
 }
 
 type parameters struct {
