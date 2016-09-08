@@ -5,7 +5,7 @@ go:
 before_install:
 - go get ./...
 before_deploy:
-- GOOS=linux GOARCH=amd64 go build -o release/terminator
+- GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=`git describe --tags --long`" -o release/terminator
 deploy:
   provider: releases
   api_key:
