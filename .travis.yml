@@ -1,5 +1,15 @@
 language: go
-
 go:
-  - 1.6
-  - tip
+- 1.6
+- tip
+before_install:
+- go get ./...
+before_deploy:
+- GOOS=linux GOARCH=amd64 go build -o release/terminator
+deploy:
+  provider: releases
+  api_key:
+    secure: k8y4YNgQ0gEl58STByJfFN8YL653AWH20Hhx5R0AT4is5NhZj4uY4LqS2ZOKbQ9iUekg3Dvgh0YEZ1JY5PsNxbHbuOcqrcnez83Tc7iwZNWdMSqZJF1JWY/OtWE4C2+/rGHtcb6hHcyl1ZAXCsx2QEkVPC+I8bE0TSoQdNyOypupGCvrOZummgLHA5R7/2sdQ5St1o8OMII8QGg7dnTnLG9UDAEVaBlt+SsDOuDNSwbZibd7m2UT+dbyZFJqoWH1crd+7mnvY3XZR3/SFBUhqL76W4kSokmypIwaRg2SIVclAJZoZFwTPnC1xNSimR4l0l1PbqSOj3nXfhv8U0QXdpH2fOWACVMKKm5rxzOVDptDUf/ewdiHjdzUezzVgeoKCWK176q/K2u+CUq4NDNvGD2JCC+tlgC6K9BbuT78HPqnzzh4nmZ9l4Si8cJHIEtWJ1TbZP1GiH1/GzJTg3OeKJvYMiW6ZPc5a9CYlkkVxp1CWeMJ6mMhy4GFRD9xPnmD7FXcQXx56geG2Hm7wGHzZwM/fPg2t2RjQKKlyTwDu8/e3bkN+mEtc6rC6ewJ8kLsukYpACbdcvN9PEGnMEvvSWTZgV7lCPcDRcRr9obDXDvCliU8SD2mz076cmKZViUrIw44WnogGxUlY01yklVolUkkVY3tQcUNfmVSSTgzrqc=
+  file: release/terminator
+  on:
+    repo: a-h/terminator
