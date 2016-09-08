@@ -1,5 +1,6 @@
 AWS Terminator
 ==============
+[![Build Status](https://travis-ci.org/a-h/terminator.svg?branch=master)](https://travis-ci.org/a-h/terminator)
 
 A Go program which terminates healthy instances from autoscaling groups based on version rules.
 
