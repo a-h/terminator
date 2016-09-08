@@ -12,4 +12,5 @@ deploy:
   file: release/terminator
   on:
     repo: a-h/terminator
+    tags: true
   skip_cleanup: true
