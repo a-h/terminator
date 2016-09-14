@@ -1,8 +1,8 @@
 package integration
 
 import (
+	"bytes"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -123,6 +123,9 @@ func (p *AWSProvider) GetDetail(instanceID string, scheme string, port int, endp
 				return nil, fmt.Errorf("Failed to get version number from URL %s with error %-v", complete, err)
 			}
 
+			// Trim quotes.
+			versionNumber = strings.Trim(versionNumber, "\"")
+
 			// Trim v from any version number returned from a URL.
 			if strings.HasPrefix(versionNumber, "v") {
 				versionNumber = versionNumber[1:]
@@ -182,13 +185,14 @@ func getURL(url string) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	buf := new(bytes.Buffer)
+	_, err = buf.ReadFrom(resp.Body)
 
 	if err != nil {
 		return "", err
 	}
 
-	return string(body), nil
+	return buf.String(), nil
 }
 
 // TerminateInstances terminates the given instances.

@@ -80,10 +80,10 @@ func terminate(cloud integration.CloudProvider, p parameters) []string {
 		return terminatedInstances
 	}
 
-	groups := filterByName(allGroups, p.autoScalingGroups)
+	groups := filterByName(allGroups, []string(p.autoScalingGroups))
 
 	if len(p.autoScalingGroups) > 0 {
-		fmt.Printf("Filtering groups %-v by expression %-v.\n", getGroupNames(allGroups), p.autoScalingGroups)
+		fmt.Printf("Filtering groups %+v by expression %+v.\n", getGroupNames(allGroups), []string(p.autoScalingGroups))
 	}
 
 	fmt.Printf("Working on groups %-v.\n", getGroupNames(groups))
@@ -96,29 +96,35 @@ func terminate(cloud integration.CloudProvider, p parameters) []string {
 			healthy,
 			unhealthy)
 
-		if len(healthy) > p.minimumInstanceCount {
-			var instanceIdsToTerminate []string
+		if len(healthy) <= p.minimumInstanceCount {
+			fmt.Printf("%s => no action taken\n", g.Name)
 
-			if p.onlyTerminateOldVersions {
-				fmt.Printf("%s => only terminating old versions\n", g.Name)
+			continue
+		}
 
-				maximumOldVersions := len(healthy) - p.minimumInstanceCount
-				var lowestVersion, highestVersion semver.Version
-				var err error
-				lowestVersion, highestVersion, instanceIdsToTerminate, err = getOldestIDs(cloud, healthy, p.scheme, p.port, p.versionURL, maximumOldVersions)
+		var instanceIdsToTerminate []string
 
-				if err != nil {
-					fmt.Printf("%s => failed to get version data with error %-v\n", g.Name, err)
-				}
+		if p.onlyTerminateOldVersions {
+			fmt.Printf("%s => only terminating old versions\n", g.Name)
 
-				fmt.Printf("%s => lowest version %-v, highest version %-v\n", g.Name, lowestVersion, highestVersion)
-			} else {
-				fmt.Printf("%s => terminating oldest instances\n", g.Name)
+			maximumOldVersions := len(healthy) - p.minimumInstanceCount
+			var lowestVersion, highestVersion semver.Version
+			var err error
+			lowestVersion, highestVersion, instanceIdsToTerminate, err = getOldestIDs(cloud, healthy, p.scheme, p.port, p.versionURL, maximumOldVersions)
 
-				instancesToTerminate := append(healthy[p.minimumInstanceCount:], unhealthy...)
-				instanceIdsToTerminate = getInstanceIDs(instancesToTerminate)
+			if err != nil {
+				fmt.Printf("%s => failed to get version data with error %-v\n", g.Name, err)
 			}
 
+			fmt.Printf("%s => lowest version %-v, highest version %-v, %d instances to terminate\n", g.Name, lowestVersion, highestVersion, len(instanceIdsToTerminate))
+		} else {
+			fmt.Printf("%s => terminating oldest instance(s) regardless of version\n", g.Name)
+
+			instancesToTerminate := append(healthy[p.minimumInstanceCount:], unhealthy...)
+			instanceIdsToTerminate = getInstanceIDs(instancesToTerminate)
+		}
+
+		if len(instanceIdsToTerminate) > 0 {
 			fmt.Printf("%s => terminating %d of %d instances\n", g.Name, len(instanceIdsToTerminate), len(g.Instances))
 
 			fmt.Printf("%s => terminating instance ids %-v\n", g.Name, instanceIdsToTerminate)
@@ -135,8 +141,6 @@ func terminate(cloud integration.CloudProvider, p parameters) []string {
 					fmt.Printf("%s => complete\n", g.Name)
 				}
 			}
-		} else {
-			fmt.Printf("%s => no action taken\n", g.Name)
 		}
 	}
 
@@ -159,7 +163,7 @@ func filterByName(grps []integration.AutoScalingGroup, namesToInclude []string) 
 		return grps
 	}
 
-	op := []integration.AutoScalingGroup{}
+	var op []integration.AutoScalingGroup
 
 	for _, g := range grps {
 		for _, n := range namesToInclude {
