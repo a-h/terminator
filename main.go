@@ -83,7 +83,7 @@ func terminate(cloud integration.CloudProvider, p parameters) []string {
 	groups := filterByName(allGroups, p.autoScalingGroups)
 
 	if len(p.autoScalingGroups) > 0 {
-		fmt.Printf("Filtering groups %-v by expression %-v.\n", getGroupNames(groups), p.autoScalingGroups)
+		fmt.Printf("Filtering groups %-v by expression %-v.\n", getGroupNames(allGroups), p.autoScalingGroups)
 	}
 
 	fmt.Printf("Working on groups %-v.\n", getGroupNames(groups))
