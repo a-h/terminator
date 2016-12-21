@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/blang/semver"
 )
 
@@ -28,6 +29,9 @@ type CloudProvider interface {
 	GetDetail(instanceID string, scheme string, port int, endpoint string) (*InstanceDetail, error)
 	// TerminateInstances terminates the given instances.
 	TerminateInstances(instanceIDs []string) error
+
+	// GetObject retrives an object from S3
+	GetObject(bucket string, path string) (string, error)
 }
 
 // AutoScalingGroup represents an autoscaling group.
@@ -93,6 +97,42 @@ func (p *AWSProvider) DescribeAutoScalingGroups() ([]AutoScalingGroup, error) {
 	}
 
 	return rv, err
+}
+
+func (p *AWSProvider) GetInstanceDetails(instances []Instance, scheme string, port int, path string) (InstanceDetails, error) {
+	details := InstanceDetails{}
+
+	for _, instance := range instances {
+		detail, err := p.GetDetail(instance.ID, scheme, port, path)
+
+		if err != nil {
+			return nil, err
+		}
+
+		details = append(details, *detail)
+	}
+
+	return details, nil
+}
+
+func (p *AWSProvider) GetObject(bucket string, path string) (string, error) {
+	fmt.Println("Retrieving data from S3...")
+	svc := s3.New(p.session)
+
+	params := &s3.GetObjectInput{
+    Bucket: aws.String(bucket),
+    Key: 		aws.String(path),
+	}
+
+	resp, err := svc.GetObject(params)
+
+	if err != nil {
+		return "", err
+	}
+
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(resp.Body)
+	return buf.String(), nil
 }
 
 // GetDetail returns information about the instance.
