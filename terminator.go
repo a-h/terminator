@@ -216,8 +216,8 @@ func takeAtMost(details integration.InstanceDetails, most int) integration.Insta
 	return details[:most]
 }
 
-func getCanonicalVersion(cloud integration.CloudProvider) (VersionDetails, error) {
-  data, err := cloud.GetObject("westfield-build", "dev/version.txt")
+func getCanonicalVersion(cloud integration.CloudProvider, bucket string, filePath string) (VersionDetails, error) {
+  data, err := cloud.GetObject(bucket, filePath)
 
   if err != nil {
     return VersionDetails{}, err
