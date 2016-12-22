@@ -3,7 +3,7 @@ package main
 import "testing"
 
 func TestAutoscalingGroups(t *testing.T) {
-	grps := autoScalingGroups{}
+	grps := AsgParams{}
 
 	grps.Set("a,b,c")
 
