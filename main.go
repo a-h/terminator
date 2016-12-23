@@ -15,7 +15,6 @@ var minimumInstanceCountFlag = flag.Int("minimumInstanceCount", 1, "Specifies th
 var schemeFlag = flag.String("scheme", "http", "Chooses the scheme, e.g. http or https.")
 var portFlag = flag.Int("port", 80, "The TCP port to run communications over.")
 var versionURLFlag = flag.String("path", "/version/", "Specifies the URL path which will be connected to (after the private IP address of the instance. The expectation is a version number should be returned, e.g. 1.1.4")
-var versionFlag = flag.Bool("version", false, "When set, just displays the version and quits.")
 
 var canonicalFlag = flag.String("canonical", "1.0.0", "The canonical version to check against when terminating instances.")
 
