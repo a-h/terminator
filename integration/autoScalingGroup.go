@@ -53,7 +53,7 @@ func (group AutoScalingGroup) GetTargetInstances(canonical semver.Version, minim
 
 	for i, details := range group.InstanceDetails {
 		if details.VersionNumber.LT(canonical) || details.VersionNumber.GT(canonical) {
-			mismatchedInstances := append(mismatchedInstances, group.Instances[i].ID)
+			mismatchedInstances = append(mismatchedInstances, group.Instances[i].ID)
 		}
 	}
 
