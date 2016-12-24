@@ -46,10 +46,11 @@ func (group AutoScalingGroup) GetTargetInstances(canonical semver.Version, minim
     return []string{}, nil
   }
 
-  var mismatchedInstances []string
+	maximum := len(healthy) - minimumInstanceCount
+	instancesToTerminate := append(healthy[minimumInstanceCount:], unhealthy...)
 
-  //maximum := len(healthy) - minimumInstanceCount
 	fmt.Printf("%s => terminating instances that don't match version %s\n", group.Name, canonical)
+	var mismatchedInstances []string
 
 	for i, details := range group.InstanceDetails {
 		if details.VersionNumber.LT(canonical) || details.VersionNumber.GT(canonical) {
@@ -57,10 +58,13 @@ func (group AutoScalingGroup) GetTargetInstances(canonical semver.Version, minim
 		}
 	}
 
-	instancesToTerminate := append(healthy[minimumInstanceCount:], unhealthy...)
-	instanceIdsToTerminate := append(mismatchedInstances, getInstanceIDs(instancesToTerminate)...)
+	instanceIdsToTerminate := removeDuplicates(append(mismatchedInstances, getInstanceIDs(instancesToTerminate)...))
 
-	return instanceIdsToTerminate, nil
+	if len(instanceIdsToTerminate) <= maximum {
+		return instanceIdsToTerminate, nil
+	}
+
+	return instanceIdsToTerminate[:maximum], nil
 }
 
 func categoriseInstances(instances []Instance, minimumInstanceCount int) (healthyInstances []Instance, otherInstances []Instance) {
@@ -86,4 +90,18 @@ func getInstanceIDs(instances []Instance) []string {
 	}
 
 	return ids
+}
+
+func removeDuplicates(elements []string) []string {
+	encountered := map[string]bool{}
+	result := []string{}
+
+	for v := range elements {
+		if encountered[elements[v]] == false {
+			encountered[elements[v]] = true
+			result = append(result, elements[v])
+		}
+	}
+
+	return result
 }
