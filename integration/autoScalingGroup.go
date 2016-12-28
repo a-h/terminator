@@ -2,6 +2,7 @@ package integration
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
@@ -34,6 +35,7 @@ func NewAutoScalingGroup(name string, instances []*autoscaling.Instance, instanc
 }
 
 func (group AutoScalingGroup) GetTargetInstances(canonical semver.Version, minimumInstanceCount int) ([]string, error) {
+	start := time.Now()
 	healthy, unhealthy := categoriseInstances(group.Instances, minimumInstanceCount)
 
   fmt.Printf("%s => %d healthy instances, %d unhealthy instances\n\thealthy: %+v\n\tunhealthy: %+v\n",
@@ -42,7 +44,7 @@ func (group AutoScalingGroup) GetTargetInstances(canonical semver.Version, minim
     unhealthy)
 
   if len(healthy) <= minimumInstanceCount {
-    fmt.Printf("%s => no action taken, not enough healthy instances \n", group.Name)
+    fmt.Printf("%s => no action taken, not enough healthy instances\n", group.Name)
     return []string{}, nil
   }
 
@@ -64,6 +66,7 @@ func (group AutoScalingGroup) GetTargetInstances(canonical semver.Version, minim
 		return instanceIdsToTerminate, nil
 	}
 
+	fmt.Println("time: AutoScalingGroup.GetTargetInstances() ", time.Since(start))
 	return instanceIdsToTerminate[:maximum], nil
 }
 

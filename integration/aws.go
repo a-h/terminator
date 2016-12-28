@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -27,6 +28,8 @@ type CloudProvider interface {
 	GetDetail(instanceID string, scheme string, port int, endpoint string) (*InstanceDetail, error)
 	// TerminateInstances terminates the given instances.
 	TerminateInstances(instanceIDs []string) error
+
+	GetInstanceDetails(instances []*autoscaling.Instance, groupName string, scheme string, port int, path string) (InstanceDetails, error)
 }
 
 // AWSProvider provides data from AWS.
@@ -49,6 +52,7 @@ func NewAWSProvider(region string) (*AWSProvider, error) {
 // DescribeAutoScalingGroups provides information about the available auto-scaling groups.
 func (p *AWSProvider) DescribeAutoScalingGroups(names []string, scheme string, port int, path string) ([]AutoScalingGroup, error) {
 	fmt.Println("Retrieving data on autoscaling groups:", names)
+	start := time.Now()
 	svc := autoscaling.New(p.session)
 
 	awsGroups, err := svc.DescribeAutoScalingGroups(&autoscaling.DescribeAutoScalingGroupsInput{
@@ -60,13 +64,16 @@ func (p *AWSProvider) DescribeAutoScalingGroups(names []string, scheme string, p
 	}
 
 	groups := make([]AutoScalingGroup, len(awsGroups.AutoScalingGroups))
+	errorCount := 0
 
 	for i, g := range awsGroups.AutoScalingGroups {
-		fmt.Printf("%s => Getting instance details for this autoscaling group.\n", aws.StringValue(g.AutoScalingGroupName))
+		groupName := aws.StringValue(g.AutoScalingGroupName)
+		fmt.Printf("%s => Getting instance details for this autoscaling group.\n", groupName)
 
-		instanceDetails, err := p.GetInstanceDetails(g.Instances, scheme, port, path)
+		instanceDetails, err := p.GetInstanceDetails(g.Instances, groupName, scheme, port, path)
 		if err != nil {
-			fmt.Errorf("%s => Failed to get instance details, skipping this group\n", aws.StringValue(g.AutoScalingGroupName))
+			fmt.Printf("%s => Failed to get instance details, skipping this group\n", groupName)
+			errorCount++
 			continue
 		}
 
@@ -75,24 +82,42 @@ func (p *AWSProvider) DescribeAutoScalingGroups(names []string, scheme string, p
 			g.Instances,
 			instanceDetails)
 
-		fmt.Println("%s => Retrieved all instance details.", asg.Name)
+		fmt.Printf("%s => Retrieved all instance details.", asg.Name)
 		groups[i] = asg
+	}
+
+	fmt.Println("time: *AWSProvider.DescribeAutoScalingGroups() ", time.Since(start))
+
+	if len(groups) == errorCount {
+		return nil, fmt.Errorf("No valid groups found.")
 	}
 
 	return groups, nil
 }
 
-func (p *AWSProvider) GetInstanceDetails(instances []*autoscaling.Instance, scheme string, port int, path string) (InstanceDetails, error) {
+func (p *AWSProvider) GetInstanceDetails(instances []*autoscaling.Instance, groupName string, scheme string, port int, path string) (InstanceDetails, error) {
+	start := time.Now()
 	details := InstanceDetails{}
 
 	for _, instance := range instances {
-		detail, err := p.GetDetail(aws.StringValue(instance.InstanceId), scheme, port, path)
+		instanceId := aws.StringValue(instance.InstanceId)
+
+		fmt.Printf("%s => %s => Getting instance details.\n", groupName, instanceId)
+		detail, err := p.GetDetail(instanceId, scheme, port, path)
 
 		if err != nil {
-			return nil, err
+			fmt.Printf("%s => %s => %+v\n", groupName, instanceId, err)
+			continue
 		}
 
+		fmt.Printf("%s => %s => Retrieved instances details. Version %s", groupName, instanceId, detail.VersionNumber)
 		details = append(details, *detail)
+	}
+
+	fmt.Println("time: *AWSProvider.GetInstanceDetails() ", time.Since(start))
+
+	if len(details) <= 0 {
+		return nil, fmt.Errorf("Couldn't get any instance details")
 	}
 
 	return details, nil

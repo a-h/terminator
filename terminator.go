@@ -24,11 +24,11 @@ func Terminate(cloud integration.CloudProvider, p parameters) []string {
     p.versionURL)
 
   if err != nil {
-    fmt.Printf("Failed to get auto scaling groups, ", err)
+    fmt.Printf("Failed to get auto scaling groups, %+v. Exiting...\n", err)
     return nil
   }
 
-	fmt.Println("Working on groups %-v.", getGroupNames(groups))
+	fmt.Println("Working on groups ", getGroupNames(groups))
 
   canonicalVersion, err := semver.Make(p.canonical)
   if err != nil {
@@ -47,12 +47,12 @@ func Terminate(cloud integration.CloudProvider, p parameters) []string {
       continue
     }
 
-    fmt.Println("%s => terminating %d of %d instances", g.Name, len(targets), len(g.Instances))
+    fmt.Printf("%s => terminating %d of %d instances\n", g.Name, len(targets), len(g.Instances))
 
-    fmt.Println("%s => terminating instance ids %-v", g.Name, targets)
+    fmt.Printf("%s => terminating instance ids %-v\n", g.Name, targets)
 
     if p.isDryRun {
-      fmt.Println("%s => no action taken, set --isDryRun=false to execute", g.Name)
+      fmt.Printf("%s => no action taken, set --isDryRun=false to execute\n", g.Name)
       continue
     }
 
@@ -62,11 +62,11 @@ func Terminate(cloud integration.CloudProvider, p parameters) []string {
       fmt.Errorf("%s => failed to terminate instances with error - %s\n", g.Name, err)
     } else {
       terminatedInstances = append(terminatedInstances, targets...)
-      fmt.Println("%s => complete\n", g.Name)
+      fmt.Printf("%s => complete\n", g.Name)
     }
 	}
 
-	fmt.Println("Completed termination of all groups %-v.", getGroupNames(groups))
+	fmt.Println("Completed termination of all groups ", getGroupNames(groups))
 	return terminatedInstances
 }
 
