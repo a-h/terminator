@@ -75,11 +75,11 @@ func (p *AWSProvider) DescribeAutoScalingGroups(names []string, scheme string, p
 			g.Instances,
 			instanceDetails)
 
-		fmt.Printf("%s => Retrieved all instance details.\n", asg.Name)
+		fmt.Println("%s => Retrieved all instance details.", asg.Name)
 		groups[i] = asg
 	}
 
-	return groups, err
+	return groups, nil
 }
 
 func (p *AWSProvider) GetInstanceDetails(instances []*autoscaling.Instance, scheme string, port int, path string) (InstanceDetails, error) {
@@ -192,7 +192,7 @@ func convert(s []string) []*string {
 	rv := make([]*string, len(s))
 
 	for i, v := range s {
-		rv[i] = &v
+		rv[i] = aws.String(v)
 	}
 
 	return rv
