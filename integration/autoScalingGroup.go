@@ -48,9 +48,6 @@ func (group AutoScalingGroup) GetTargetInstances(canonical semver.Version, minim
     return []string{}, nil
   }
 
-	maximum := len(healthy) - minimumInstanceCount
-	instancesToTerminate := append(healthy[minimumInstanceCount:], unhealthy...)
-
 	fmt.Printf("%s => terminating instances that don't match version %s\n", group.Name, canonical)
 	var mismatchedInstances []string
 
@@ -60,13 +57,18 @@ func (group AutoScalingGroup) GetTargetInstances(canonical semver.Version, minim
 		}
 	}
 
-	instanceIdsToTerminate := removeDuplicates(append(mismatchedInstances, getInstanceIDs(instancesToTerminate)...))
+	// Priority order to keep (NOT terminate) instances:
+	// - Healthy, Unhealthy, Mismatched
+	priorityInstances := append(getInstanceIDs(unhealthy), getInstanceIDs(healthy[minimumInstanceCount:])...)
+	instanceIdsToTerminate := removeDuplicates(append(mismatchedInstances, priorityInstances...))
+
+	maximum := len(group.Instances) - minimumInstanceCount
+	fmt.Println("time: AutoScalingGroup.GetTargetInstances() ", time.Since(start))
 
 	if len(instanceIdsToTerminate) <= maximum {
 		return instanceIdsToTerminate, nil
 	}
 
-	fmt.Println("time: AutoScalingGroup.GetTargetInstances() ", time.Since(start))
 	return instanceIdsToTerminate[:maximum], nil
 }
 

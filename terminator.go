@@ -44,6 +44,7 @@ func Terminate(cloud integration.CloudProvider, p parameters) []string {
     }
 
     if len(targets) <= 0 {
+      fmt.Printf("%s => no action taken, no instances to terminate\n", g.Name)
       continue
     }
 

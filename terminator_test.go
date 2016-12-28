@@ -5,7 +5,10 @@ import (
 	"sort"
 	"testing"
 	"time"
+	"fmt"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/a-h/terminator/integration"
 	"github.com/blang/semver"
 )
@@ -32,7 +35,7 @@ func testIsHealthy(t *testing.T) {
 	actual := make([]bool, len(instances))
 
 	for idx, in := range instances {
-		actual[idx] = isHealthy(in)
+		actual[idx] = in.IsHealthy()
 	}
 
 	expected := []bool{true, false, false}
@@ -45,6 +48,14 @@ func testIsHealthy(t *testing.T) {
 }
 
 func createTestData(customVersions map[string]string, customTimes map[string]time.Time) *MockProvider {
+	aVer, _ := semver.Make(customVersions["A"])
+	bVer, _ := semver.Make(customVersions["B"])
+	cVer, _ := semver.Make(customVersions["C"])
+	dVer, _ := semver.Make(customVersions["D"])
+	eVer, _ := semver.Make(customVersions["E"])
+	fVer, _ := semver.Make(customVersions["F"])
+	gVer, _ := semver.Make(customVersions["G"])
+
 	groups := []integration.AutoScalingGroup{
 		integration.AutoScalingGroup{
 			Name: "Group1",
@@ -63,6 +74,23 @@ func createTestData(customVersions map[string]string, customTimes map[string]tim
 					ID:             "C",
 					LifecycleState: "OutOfService",
 					HealthStatus:   "Healthy",
+				},
+			},
+			InstanceDetails: integration.InstanceDetails{
+				integration.InstanceDetail{
+					ID: 						"A",
+					VersionNumber:	aVer,
+					LaunchTime:			customTimes["A"],
+				},
+				integration.InstanceDetail{
+					ID: 						"B",
+					VersionNumber:	bVer,
+					LaunchTime:			customTimes["B"],
+				},
+				integration.InstanceDetail{
+					ID: 						"C",
+					VersionNumber:	cVer,
+					LaunchTime:			customTimes["C"],
 				},
 			},
 		},
@@ -90,6 +118,28 @@ func createTestData(customVersions map[string]string, customTimes map[string]tim
 					HealthStatus:   "Healthy",
 				},
 			},
+			InstanceDetails: integration.InstanceDetails{
+				integration.InstanceDetail{
+					ID: 						"D",
+					VersionNumber:	dVer,
+					LaunchTime:			customTimes["D"],
+				},
+				integration.InstanceDetail{
+					ID: 						"E",
+					VersionNumber:	eVer,
+					LaunchTime:			customTimes["E"],
+				},
+				integration.InstanceDetail{
+					ID: 						"F",
+					VersionNumber:	fVer,
+					LaunchTime:			customTimes["F"],
+				},
+				integration.InstanceDetail{
+					ID: 						"G",
+					VersionNumber:	gVer,
+					LaunchTime:			customTimes["G"],
+				},
+			},
 		},
 	}
 
@@ -110,9 +160,9 @@ func TestSuite(t *testing.T) {
 			p: parameters{
 				region:                   "europa-westmoreland-1",
 				minimumInstanceCount:     0,
-				onlyTerminateOldVersions: false,
 				versionURL:               "",
 				isDryRun:                 false,
+				canonical:								"5.0.0",
 			},
 			expectedTerminations: []string{"A", "B", "C", "D", "E", "F", "G"},
 		},
@@ -122,10 +172,10 @@ func TestSuite(t *testing.T) {
 			p: parameters{
 				region:                   "europa-westmoreland-1",
 				minimumInstanceCount:     0,
-				onlyTerminateOldVersions: false,
 				versionURL:               "",
 				isDryRun:                 false,
-				autoScalingGroups:        []string{"group2"}, // Filter to Group1 and Group2
+				autoScalingGroups:        []string{"Group2"}, // Filter to Group1 and Group2
+				canonical:								"1.0.0",
 			},
 			expectedTerminations: []string{"D", "E", "F", "G"},
 		},
@@ -135,9 +185,9 @@ func TestSuite(t *testing.T) {
 			p: parameters{
 				region:                   "europa-westmoreland-1",
 				minimumInstanceCount:     0,
-				onlyTerminateOldVersions: false,
 				versionURL:               "",
 				isDryRun:                 true,
+				canonical:								"1.0.0",
 			},
 			expectedTerminations: []string{},
 		},
@@ -147,9 +197,9 @@ func TestSuite(t *testing.T) {
 			p: parameters{
 				region:                   "europa-westmoreland-1",
 				minimumInstanceCount:     1,
-				onlyTerminateOldVersions: false,
 				versionURL:               "",
 				isDryRun:                 false,
+				canonical:								"0.0.0",
 			},
 			expectedTerminations: []string{"B", "C", "E", "F", "G"},
 		},
@@ -159,44 +209,54 @@ func TestSuite(t *testing.T) {
 			p: parameters{
 				region:                   "europa-westmoreland-1",
 				minimumInstanceCount:     2,
-				onlyTerminateOldVersions: false,
 				versionURL:               "",
 				isDryRun:                 false,
+				canonical:								"1.0.0",
 			},
 			// Group1 only has two healthy servers.
-			// Group2 has DEFG, so it can lose F & G
-			expectedTerminations: []string{"F", "G"},
+			// Group2 has DEFG, so it can lose 2
+			expectedTerminations: []string{"D", "E"},
 		},
 		{
-			name: "Delete the old versions!",
+			name: "Delete the old versions ",
 			customVersions: map[string]string{
 				"A": "1.0.0",
+				"B": "1.0.0",
+				"C": "1.0.0",
+				"D": "0.9.9",
+				"E": "1.0.0",
+				"F": "1.0.0",
+				"G": "1.0.0",
 			},
 			p: parameters{
 				region:                   "europa-westmoreland-1",
-				minimumInstanceCount:     1,
-				onlyTerminateOldVersions: true,
+				minimumInstanceCount:     3,
 				versionURL:               "/version",
 				isDryRun:                 false,
+				canonical:								"1.0.0",
 			},
-			expectedTerminations: []string{"A"},
+			expectedTerminations: []string{"D"},
 		},
 		{
-			name: "Delete the old versions!",
+			name: "Delete the new versions! (Canonical is set to older version)",
 			customVersions: map[string]string{
-				"A": "1.3.0",
-				"B": "0.9.0",
-				"F": "1.4.0",
+				"A": "0.9.9",
+				"B": "1.0.0",
+				"C": "1.0.0",
+				"D": "1.0.0",
+				"E": "1.0.0",
+				"F": "1.0.0",
+				"G": "0.9.9",
 			},
 			p: parameters{
 				region:                   "europa-westmoreland-1",
 				minimumInstanceCount:     1,
-				onlyTerminateOldVersions: true,
 				versionURL:               "/version",
 				isDryRun:                 false,
+				canonical:								"0.9.9",
 			},
 			// C isn't terminated because it's OutOfService.
-			expectedTerminations: []string{"B", "D", "E", "G"},
+			expectedTerminations: []string{"B", "C", "D", "E", "F"},
 		},
 		{
 			name: "Don't delete too many old versions and potentially take the service down!",
@@ -206,9 +266,9 @@ func TestSuite(t *testing.T) {
 			p: parameters{
 				region:                   "europa-westmoreland-1",
 				minimumInstanceCount:     3,
-				onlyTerminateOldVersions: true,
 				versionURL:               "/version",
 				isDryRun:                 false,
+				canonical:								"1.0.0",
 			},
 			// Group1 should be left alone completely, because all versions are equal.
 			// Group2 has 4 healthy, active servers, only one of which is running the latest version.
@@ -221,7 +281,7 @@ func TestSuite(t *testing.T) {
 		mp := createTestData(test.customVersions, test.customTimes)
 
 		// Act.
-		terminate(mp, test.p)
+		Terminate(mp, test.p)
 
 		// Assert.
 		sort.Strings(test.expectedTerminations)
@@ -263,31 +323,60 @@ func NewMockProvider(groups []integration.AutoScalingGroup,
 	defaultVersionNumber string, alternativeVersionNumbers map[string]string,
 	defaultLaunchTime time.Time, alternativeLaunchTimes map[string]time.Time) *MockProvider {
 	mp := &MockProvider{
-		DescribeAutoScalingGroupsFunc: func() ([]integration.AutoScalingGroup, error) { return groups, nil },
-		GetDetailFunc: func(instanceID string, scheme string, port int, endpoint string) (*integration.InstanceDetail, error) {
-			vs := defaultVersionNumber
+		DescribeAutoScalingGroupsFunc: func(names []string, scheme string, port int, path string) ([]integration.AutoScalingGroup, error) {
+			if len(names) > 0 {
+				result := make([]integration.AutoScalingGroup, len(names))
 
-			if av, ok := alternativeVersionNumbers[instanceID]; ok {
-				vs = av
+				for i, n := range names {
+					for _, g := range groups {
+						fmt.Printf("%s %s", g.Name, n)
+						if g.Name == n {
+							result[i] = g
+						}
+					}
+				}
+
+				fmt.Printf("\n\n\n\n\n %+v \n", result)
+				return result, nil
 			}
 
-			lt := defaultLaunchTime
+			return groups, nil
+		},
+		GetDetailFunc: func(instanceID string, scheme string, port int, endpoint string) (*integration.InstanceDetail, error) { return nil, nil },
+		GetInstanceDetailsFunc: func(instances []*autoscaling.Instance, groupName string, scheme string, port int, path string) (integration.InstanceDetails, error) {
+			result := integration.InstanceDetails{}
 
-			if alt, ok := alternativeLaunchTimes[instanceID]; ok {
-				lt = alt
+			for _, instance := range instances {
+				instanceID := aws.StringValue(instance.InstanceId)
+
+				vs := defaultVersionNumber
+
+				if av, ok := alternativeVersionNumbers[instanceID]; ok {
+					vs = av
+				}
+
+				lt := defaultLaunchTime
+
+				if alt, ok := alternativeLaunchTimes[instanceID]; ok {
+					lt = alt
+				}
+
+				version, err := semver.Make(vs)
+
+				if err != nil {
+					return nil, err
+				}
+
+				detail := integration.InstanceDetail{
+					ID:            instanceID,
+					VersionNumber: version,
+					LaunchTime:    lt,
+				}
+
+				result = append(result, detail)
 			}
 
-			version, err := semver.Make(vs)
-
-			if err != nil {
-				return nil, err
-			}
-
-			return &integration.InstanceDetail{
-				ID:            instanceID,
-				VersionNumber: version,
-				LaunchTime:    lt,
-			}, nil
+			return result, nil
 		},
 		TerminatedInstances: []string{},
 	}
@@ -297,13 +386,18 @@ func NewMockProvider(groups []integration.AutoScalingGroup,
 
 type MockProvider struct {
 	TerminatedInstances           []string
-	DescribeAutoScalingGroupsFunc func() ([]integration.AutoScalingGroup, error)
+	DescribeAutoScalingGroupsFunc func(names []string, scheme string, port int, path string) ([]integration.AutoScalingGroup, error)
+	GetInstanceDetailsFunc				func(instances []*autoscaling.Instance, groupName string, scheme string, port int, path string) (integration.InstanceDetails, error)
 	GetDetailFunc                 func(instanceID string, scheme string, port int, endpoint string) (*integration.InstanceDetail, error)
 	TerminateInstancesFunc        func(instanceIDs []string) error
 }
 
-func (p *MockProvider) DescribeAutoScalingGroups() ([]integration.AutoScalingGroup, error) {
-	return p.DescribeAutoScalingGroupsFunc()
+func (p *MockProvider) DescribeAutoScalingGroups(names []string, scheme string, port int, path string) ([]integration.AutoScalingGroup, error) {
+	return p.DescribeAutoScalingGroupsFunc(names, scheme, port, path)
+}
+
+func (p *MockProvider) GetInstanceDetails(instances []*autoscaling.Instance, groupName string, scheme string, port int, path string) (integration.InstanceDetails, error) {
+	return p.GetInstanceDetailsFunc(instances, groupName, scheme, port, path)
 }
 
 func (p *MockProvider) GetDetail(instanceID string, scheme string, port int, endpoint string) (*integration.InstanceDetail, error) {
@@ -375,44 +469,6 @@ func TestTakeAtMost(t *testing.T) {
 		if len(result) != test.expected {
 			t.Errorf("Expected to take %d, but took %d.", test.expected, len(result))
 		}
-	}
-}
-
-func TestGetOldestVersions(t *testing.T) {
-	// (details integration.InstanceDetails, maximumOldVersions int) integration.InstanceDetails {
-	oldVersion, _ := semver.New("1.0.0")
-	newVersion, _ := semver.New("1.1.0")
-
-	details := integration.InstanceDetails{
-		integration.InstanceDetail{
-			ID:            "A",
-			VersionNumber: *oldVersion,
-			LaunchTime:    time.Now(),
-		},
-		integration.InstanceDetail{
-			ID:            "B",
-			VersionNumber: *oldVersion,
-			LaunchTime:    time.Now().Add(-1 * time.Hour),
-		},
-		integration.InstanceDetail{
-			ID:            "C",
-			VersionNumber: *newVersion,
-			LaunchTime:    time.Now(),
-		},
-	}
-
-	lowest, highest, result := getOldestVersions(details, 1)
-
-	if !lowest.EQ(*oldVersion) {
-		t.Errorf("The lowest version should be %-v but was %-v", oldVersion, lowest)
-	}
-
-	if !highest.EQ(*newVersion) {
-		t.Errorf("The highest version should be %-v but was %-v", newVersion, highest)
-	}
-
-	if len(result) != 1 || result[0].ID != "B" {
-		t.Errorf("Only the single oldest instance with the old version should be returned but %+v was returned.", result)
 	}
 }
 
@@ -495,27 +551,5 @@ func TestSortingInstanceDetailsByTimeAndVersion(t *testing.T) {
 	expected := []string{"B", "C", "A"}
 	if !reflect.DeepEqual(orderedIds, expected) {
 		t.Errorf("Expected %+v but got %+v", expected, orderedIds)
-	}
-}
-
-func TestFilterByName(t *testing.T) {
-	grps := []integration.AutoScalingGroup{
-		integration.AutoScalingGroup{
-			Name: "A",
-		},
-		integration.AutoScalingGroup{
-			Name: "B",
-		},
-		integration.AutoScalingGroup{
-			Name: "C",
-		},
-	}
-
-	filter := []string{"c"}
-
-	result := filterByName(grps, filter)
-
-	if len(result) != 1 && result[0].Name != "C" {
-		t.Error("The result was not filtered.")
 	}
 }
