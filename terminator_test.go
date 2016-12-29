@@ -192,7 +192,7 @@ func TestSuite(t *testing.T) {
 			expectedTerminations: []string{},
 		},
 		{
-			name:           "Only delete each group down to the minimum.",
+			name:           "Only delete unhealthy instances if all versions match",
 			customVersions: map[string]string{},
 			p: parameters{
 				region:                   "europa-westmoreland-1",
@@ -201,7 +201,7 @@ func TestSuite(t *testing.T) {
 				isDryRun:                 false,
 				canonical:								"0.0.0",
 			},
-			expectedTerminations: []string{"B", "C", "E", "F", "G"},
+			expectedTerminations: []string{"C"},
 		},
 		{
 			name:           "Don't do anything to the group if you would leave the cluster unhealthy.",
