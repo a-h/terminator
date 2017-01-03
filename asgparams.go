@@ -7,13 +7,13 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 )
 
-type AsgParams []string
+type asgParams []string
 
-func (a *AsgParams) String() string {
+func (a *asgParams) String() string {
 	return strings.Join(*a, ",")
 }
 
-func (a *AsgParams) Set(value string) error {
+func (a *asgParams) Set(value string) error {
 	if len(*a) > 0 {
 		return errors.New("autoScalingGroups flag already set")
 	}
@@ -24,7 +24,7 @@ func (a *AsgParams) Set(value string) error {
 	return nil
 }
 
-func (a *AsgParams) ToAwsStrings() []*string {
+func (a *asgParams) ToAwsStrings() []*string {
 	var b = []string(*a)
 	var result = make([]*string, len(b))
 

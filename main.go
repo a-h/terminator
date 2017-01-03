@@ -19,7 +19,7 @@ var versionFlag = flag.Bool("version", false, "When set, just displays the versi
 
 var canonicalFlag = flag.String("canonical", "1.0.0", "The canonical version to check against when terminating instances.")
 
-var autoScalingGroupsFlag AsgParams
+var autoScalingGroupsFlag asgParams
 
 func init() {
 	// Tie the command-line flag to the intervalFlag variable and
@@ -34,7 +34,7 @@ type parameters struct {
 	scheme               string
 	port                 int
 	versionURL           string
-	autoScalingGroups    AsgParams
+	autoScalingGroups    asgParams
 	canonical            string
 }
 
