@@ -1,15 +1,15 @@
 package main
 
 import (
+	"fmt"
 	"reflect"
 	"sort"
 	"testing"
 	"time"
-	"fmt"
 
+	"github.com/a-h/terminator/integration"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
-	"github.com/a-h/terminator/integration"
 	"github.com/blang/semver"
 )
 
@@ -78,19 +78,19 @@ func createTestData(customVersions map[string]string, customTimes map[string]tim
 			},
 			InstanceDetails: integration.InstanceDetails{
 				integration.InstanceDetail{
-					ID: 						"A",
-					VersionNumber:	aVer,
-					LaunchTime:			customTimes["A"],
+					ID:            "A",
+					VersionNumber: aVer,
+					LaunchTime:    customTimes["A"],
 				},
 				integration.InstanceDetail{
-					ID: 						"B",
-					VersionNumber:	bVer,
-					LaunchTime:			customTimes["B"],
+					ID:            "B",
+					VersionNumber: bVer,
+					LaunchTime:    customTimes["B"],
 				},
 				integration.InstanceDetail{
-					ID: 						"C",
-					VersionNumber:	cVer,
-					LaunchTime:			customTimes["C"],
+					ID:            "C",
+					VersionNumber: cVer,
+					LaunchTime:    customTimes["C"],
 				},
 			},
 		},
@@ -120,24 +120,24 @@ func createTestData(customVersions map[string]string, customTimes map[string]tim
 			},
 			InstanceDetails: integration.InstanceDetails{
 				integration.InstanceDetail{
-					ID: 						"D",
-					VersionNumber:	dVer,
-					LaunchTime:			customTimes["D"],
+					ID:            "D",
+					VersionNumber: dVer,
+					LaunchTime:    customTimes["D"],
 				},
 				integration.InstanceDetail{
-					ID: 						"E",
-					VersionNumber:	eVer,
-					LaunchTime:			customTimes["E"],
+					ID:            "E",
+					VersionNumber: eVer,
+					LaunchTime:    customTimes["E"],
 				},
 				integration.InstanceDetail{
-					ID: 						"F",
-					VersionNumber:	fVer,
-					LaunchTime:			customTimes["F"],
+					ID:            "F",
+					VersionNumber: fVer,
+					LaunchTime:    customTimes["F"],
 				},
 				integration.InstanceDetail{
-					ID: 						"G",
-					VersionNumber:	gVer,
-					LaunchTime:			customTimes["G"],
+					ID:            "G",
+					VersionNumber: gVer,
+					LaunchTime:    customTimes["G"],
 				},
 			},
 		},
@@ -158,11 +158,11 @@ func TestSuite(t *testing.T) {
 			name:           "Delete fully, regardless of health because min instance count is zero.",
 			customVersions: map[string]string{},
 			p: parameters{
-				region:                   "europa-westmoreland-1",
-				minimumInstanceCount:     0,
-				versionURL:               "",
-				isDryRun:                 false,
-				canonical:								"5.0.0",
+				region:               "europa-westmoreland-1",
+				minimumInstanceCount: 0,
+				versionURL:           "",
+				isDryRun:             false,
+				canonical:            "5.0.0",
 			},
 			expectedTerminations: []string{"A", "B", "C", "D", "E", "F", "G"},
 		},
@@ -170,12 +170,12 @@ func TestSuite(t *testing.T) {
 			name:           "Only delete items in Group2, because of the filter.",
 			customVersions: map[string]string{},
 			p: parameters{
-				region:                   "europa-westmoreland-1",
-				minimumInstanceCount:     0,
-				versionURL:               "",
-				isDryRun:                 false,
-				autoScalingGroups:        []string{"Group2"}, // Filter to Group1 and Group2
-				canonical:								"1.0.0",
+				region:               "europa-westmoreland-1",
+				minimumInstanceCount: 0,
+				versionURL:           "",
+				isDryRun:             false,
+				autoScalingGroups:    []string{"Group2"}, // Filter to Group1 and Group2
+				canonical:            "1.0.0",
 			},
 			expectedTerminations: []string{"D", "E", "F", "G"},
 		},
@@ -183,11 +183,11 @@ func TestSuite(t *testing.T) {
 			name:           "Don't delete if isDryRun is set to true.",
 			customVersions: map[string]string{},
 			p: parameters{
-				region:                   "europa-westmoreland-1",
-				minimumInstanceCount:     0,
-				versionURL:               "",
-				isDryRun:                 true,
-				canonical:								"1.0.0",
+				region:               "europa-westmoreland-1",
+				minimumInstanceCount: 0,
+				versionURL:           "",
+				isDryRun:             true,
+				canonical:            "1.0.0",
 			},
 			expectedTerminations: []string{},
 		},
@@ -195,11 +195,11 @@ func TestSuite(t *testing.T) {
 			name:           "Only delete unhealthy instances if all versions match",
 			customVersions: map[string]string{},
 			p: parameters{
-				region:                   "europa-westmoreland-1",
-				minimumInstanceCount:     1,
-				versionURL:               "",
-				isDryRun:                 false,
-				canonical:								"0.0.0",
+				region:               "europa-westmoreland-1",
+				minimumInstanceCount: 1,
+				versionURL:           "",
+				isDryRun:             false,
+				canonical:            "0.0.0",
 			},
 			expectedTerminations: []string{"C"},
 		},
@@ -207,11 +207,11 @@ func TestSuite(t *testing.T) {
 			name:           "Don't do anything to the group if you would leave the cluster unhealthy.",
 			customVersions: map[string]string{},
 			p: parameters{
-				region:                   "europa-westmoreland-1",
-				minimumInstanceCount:     2,
-				versionURL:               "",
-				isDryRun:                 false,
-				canonical:								"1.0.0",
+				region:               "europa-westmoreland-1",
+				minimumInstanceCount: 2,
+				versionURL:           "",
+				isDryRun:             false,
+				canonical:            "1.0.0",
 			},
 			// Group1 only has two healthy servers.
 			// Group2 has DEFG, so it can lose 2
@@ -229,11 +229,11 @@ func TestSuite(t *testing.T) {
 				"G": "1.0.0",
 			},
 			p: parameters{
-				region:                   "europa-westmoreland-1",
-				minimumInstanceCount:     3,
-				versionURL:               "/version",
-				isDryRun:                 false,
-				canonical:								"1.0.0",
+				region:               "europa-westmoreland-1",
+				minimumInstanceCount: 3,
+				versionURL:           "/version",
+				isDryRun:             false,
+				canonical:            "1.0.0",
 			},
 			expectedTerminations: []string{"D"},
 		},
@@ -249,11 +249,11 @@ func TestSuite(t *testing.T) {
 				"G": "0.9.9",
 			},
 			p: parameters{
-				region:                   "europa-westmoreland-1",
-				minimumInstanceCount:     1,
-				versionURL:               "/version",
-				isDryRun:                 false,
-				canonical:								"0.9.9",
+				region:               "europa-westmoreland-1",
+				minimumInstanceCount: 1,
+				versionURL:           "/version",
+				isDryRun:             false,
+				canonical:            "0.9.9",
 			},
 			// C isn't terminated because it's OutOfService.
 			expectedTerminations: []string{"B", "C", "D", "E", "F"},
@@ -264,11 +264,11 @@ func TestSuite(t *testing.T) {
 				"F": "1.4.0",
 			},
 			p: parameters{
-				region:                   "europa-westmoreland-1",
-				minimumInstanceCount:     3,
-				versionURL:               "/version",
-				isDryRun:                 false,
-				canonical:								"1.0.0",
+				region:               "europa-westmoreland-1",
+				minimumInstanceCount: 3,
+				versionURL:           "/version",
+				isDryRun:             false,
+				canonical:            "1.0.0",
 			},
 			// Group1 should be left alone completely, because all versions are equal.
 			// Group2 has 4 healthy, active servers, only one of which is running the latest version.
@@ -342,7 +342,9 @@ func NewMockProvider(groups []integration.AutoScalingGroup,
 
 			return groups, nil
 		},
-		GetDetailFunc: func(instanceID string, scheme string, port int, endpoint string) (*integration.InstanceDetail, error) { return nil, nil },
+		GetDetailFunc: func(instanceID string, scheme string, port int, endpoint string) (*integration.InstanceDetail, error) {
+			return nil, nil
+		},
 		GetInstanceDetailsFunc: func(instances []*autoscaling.Instance, groupName string, scheme string, port int, path string) (integration.InstanceDetails, error) {
 			result := integration.InstanceDetails{}
 
@@ -387,7 +389,7 @@ func NewMockProvider(groups []integration.AutoScalingGroup,
 type MockProvider struct {
 	TerminatedInstances           []string
 	DescribeAutoScalingGroupsFunc func(names []string, scheme string, port int, path string) ([]integration.AutoScalingGroup, error)
-	GetInstanceDetailsFunc				func(instances []*autoscaling.Instance, groupName string, scheme string, port int, path string) (integration.InstanceDetails, error)
+	GetInstanceDetailsFunc        func(instances []*autoscaling.Instance, groupName string, scheme string, port int, path string) (integration.InstanceDetails, error)
 	GetDetailFunc                 func(instanceID string, scheme string, port int, endpoint string) (*integration.InstanceDetail, error)
 	TerminateInstancesFunc        func(instanceIDs []string) error
 }

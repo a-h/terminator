@@ -28,14 +28,14 @@ func init() {
 }
 
 type parameters struct {
-	region                   string
-	isDryRun                 bool
-	minimumInstanceCount     int
-	scheme                   string
-	port                     int
-	versionURL               string
-	autoScalingGroups        AsgParams
-	canonical								 string
+	region               string
+	isDryRun             bool
+	minimumInstanceCount int
+	scheme               string
+	port                 int
+	versionURL           string
+	autoScalingGroups    AsgParams
+	canonical            string
 }
 
 func main() {
@@ -54,14 +54,14 @@ func main() {
 	}
 
 	p := parameters{
-		region:                   *regionFlag,
-		isDryRun:                 *isDryRunFlag,
-		minimumInstanceCount:     *minimumInstanceCountFlag,
-		scheme:            				*schemeFlag,
-		port:              				*portFlag,
-		versionURL:        				*versionURLFlag,
-		autoScalingGroups: 				autoScalingGroupsFlag,
-		canonical:								*canonicalFlag,
+		region:               *regionFlag,
+		isDryRun:             *isDryRunFlag,
+		minimumInstanceCount: *minimumInstanceCountFlag,
+		scheme:               *schemeFlag,
+		port:                 *portFlag,
+		versionURL:           *versionURLFlag,
+		autoScalingGroups:    autoScalingGroupsFlag,
+		canonical:            *canonicalFlag,
 	}
 
 	Terminate(aws, p)
