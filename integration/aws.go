@@ -100,17 +100,17 @@ func (p *AWSProvider) GetInstanceDetails(instances []*autoscaling.Instance, grou
 	details := InstanceDetails{}
 
 	for _, instance := range instances {
-		instanceId := aws.StringValue(instance.InstanceId)
+		instanceID := aws.StringValue(instance.InstanceId)
 
-		fmt.Printf("%s => %s => Getting instance details.\n", groupName, instanceId)
-		detail, err := p.GetDetail(instanceId, scheme, port, path)
+		fmt.Printf("%s => %s => Getting instance details.\n", groupName, instanceID)
+		detail, err := p.GetDetail(instanceID, scheme, port, path)
 
 		if err != nil {
-			fmt.Printf("%s => %s => %+v\n", groupName, instanceId, err)
+			fmt.Printf("%s => %s => %+v\n", groupName, instanceID, err)
 			continue
 		}
 
-		fmt.Printf("%s => %s => Retrieved instances details. Version %s", groupName, instanceId, detail.VersionNumber)
+		fmt.Printf("%s => %s => Retrieved instances details. Version %s", groupName, instanceID, detail.VersionNumber)
 		details = append(details, *detail)
 	}
 

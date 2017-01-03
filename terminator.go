@@ -8,7 +8,7 @@ import (
 	"github.com/blang/semver"
 )
 
-func Terminate(cloud integration.CloudProvider, p parameters) []string {
+func terminate(cloud integration.CloudProvider, p parameters) []string {
 	if p.isDryRun {
 		fmt.Println("[DRY RUN] Terminator activated. Searching for Sarah Connor...")
 	} else {

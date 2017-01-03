@@ -64,5 +64,5 @@ func main() {
 		canonical:            *canonicalFlag,
 	}
 
-	Terminate(aws, p)
+	terminate(aws, p)
 }
