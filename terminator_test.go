@@ -281,7 +281,7 @@ func TestSuite(t *testing.T) {
 		mp := createTestData(test.customVersions, test.customTimes)
 
 		// Act.
-		Terminate(mp, test.p)
+		terminate(mp, test.p)
 
 		// Assert.
 		sort.Strings(test.expectedTerminations)
