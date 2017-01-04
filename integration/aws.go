@@ -18,7 +18,7 @@ import (
 // CloudProvider provides all of the methods required to integrate with AWS.
 type CloudProvider interface {
 	// DescribeAutoScalingGroups provides information about the available auto-scaling groups.
-	DescribeAutoScalingGroups() ([]AutoScalingGroup, error)
+	DescribeAutoScalingGroups(names []string, scheme string, port int, path string) ([]AutoScalingGroup, error)
 	// GetDetail returns the launch time and version number returned by accessing the EC2 API and
 	// hitting the provided endpoint in the form {scheme}://{ec2.private_ip}:{port}{endpoint}
 	// instanceID refers to the ID of the AWS EC2 instance
@@ -28,19 +28,8 @@ type CloudProvider interface {
 	GetDetail(instanceID string, scheme string, port int, endpoint string) (*InstanceDetail, error)
 	// TerminateInstances terminates the given instances.
 	TerminateInstances(instanceIDs []string) error
-}
 
-// AutoScalingGroup represents an autoscaling group.
-type AutoScalingGroup struct {
-	Name      string
-	Instances []Instance
-}
-
-// Instance represents an EC2 instance.
-type Instance struct {
-	ID             string
-	HealthStatus   string
-	LifecycleState string
+	GetInstanceDetails(instances []*autoscaling.Instance, groupName string, scheme string, port int, path string) (InstanceDetails, error)
 }
 
 // AWSProvider provides data from AWS.
@@ -61,38 +50,77 @@ func NewAWSProvider(region string) (*AWSProvider, error) {
 }
 
 // DescribeAutoScalingGroups provides information about the available auto-scaling groups.
-func (p *AWSProvider) DescribeAutoScalingGroups() ([]AutoScalingGroup, error) {
-	fmt.Println("Retrieving data on autoscaling groups...")
+func (p *AWSProvider) DescribeAutoScalingGroups(names []string, scheme string, port int, path string) ([]AutoScalingGroup, error) {
+	fmt.Println("Retrieving data on autoscaling groups:", names)
+	start := time.Now()
 	svc := autoscaling.New(p.session)
 
-	groups, err := svc.DescribeAutoScalingGroups(nil)
+	awsGroups, err := svc.DescribeAutoScalingGroups(&autoscaling.DescribeAutoScalingGroupsInput{
+		AutoScalingGroupNames: convert(names),
+	})
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get the description of all autoscaling groups, %-v", err)
 	}
 
-	rv := make([]AutoScalingGroup, len(groups.AutoScalingGroups))
+	groups := make([]AutoScalingGroup, len(awsGroups.AutoScalingGroups))
+	errorCount := 0
 
-	for i, g := range groups.AutoScalingGroups {
-		// Create the group.
-		asg := &AutoScalingGroup{
-			Name:      aws.StringValue(g.AutoScalingGroupName),
-			Instances: make([]Instance, len(g.Instances)),
+	for i, g := range awsGroups.AutoScalingGroups {
+		groupName := aws.StringValue(g.AutoScalingGroupName)
+		fmt.Printf("%s => Getting instance details for this autoscaling group.\n", groupName)
+
+		instanceDetails, err := p.GetInstanceDetails(g.Instances, groupName, scheme, port, path)
+		if err != nil {
+			fmt.Printf("%s => Failed to get instance details, skipping this group\n", groupName)
+			errorCount++
+			continue
 		}
 
-		// Extract the instances and add them to the mapping.
-		for j, awsInstance := range g.Instances {
-			asg.Instances[j] = Instance{
-				ID:             aws.StringValue(awsInstance.InstanceId),
-				HealthStatus:   aws.StringValue(awsInstance.HealthStatus),
-				LifecycleState: aws.StringValue(awsInstance.LifecycleState),
-			}
-		}
+		asg := NewAutoScalingGroup(
+			aws.StringValue(g.AutoScalingGroupName),
+			g.Instances,
+			instanceDetails)
 
-		rv[i] = *asg
+		fmt.Printf("%s => Retrieved all instance details.", asg.Name)
+		groups[i] = asg
 	}
 
-	return rv, err
+	fmt.Println("time: *AWSProvider.DescribeAutoScalingGroups() ", time.Since(start))
+
+	if len(groups) == errorCount {
+		return nil, fmt.Errorf("No valid groups found.")
+	}
+
+	return groups, nil
+}
+
+func (p *AWSProvider) GetInstanceDetails(instances []*autoscaling.Instance, groupName string, scheme string, port int, path string) (InstanceDetails, error) {
+	start := time.Now()
+	details := InstanceDetails{}
+
+	for _, instance := range instances {
+		instanceID := aws.StringValue(instance.InstanceId)
+
+		fmt.Printf("%s => %s => Getting instance details.\n", groupName, instanceID)
+		detail, err := p.GetDetail(instanceID, scheme, port, path)
+
+		if err != nil {
+			fmt.Printf("%s => %s => %+v\n", groupName, instanceID, err)
+			continue
+		}
+
+		fmt.Printf("%s => %s => Retrieved instances details. Version %s", groupName, instanceID, detail.VersionNumber)
+		details = append(details, *detail)
+	}
+
+	fmt.Println("time: *AWSProvider.GetInstanceDetails() ", time.Since(start))
+
+	if len(details) <= 0 {
+		return nil, fmt.Errorf("Couldn't get any instance details")
+	}
+
+	return details, nil
 }
 
 // GetDetail returns information about the instance.
@@ -148,26 +176,16 @@ func (p *AWSProvider) GetDetail(instanceID string, scheme string, port int, endp
 	return nil, fmt.Errorf("Could not find an instance with id %s", instanceID)
 }
 
-// InstanceDetail provides information about the instance from EC2.
-type InstanceDetail struct {
-	ID            string
-	VersionNumber semver.Version
-	LaunchTime    time.Time
-}
+// TerminateInstances terminates the given instances.
+func (p *AWSProvider) TerminateInstances(instanceIDs []string) error {
+	params := &ec2.TerminateInstancesInput{
+		InstanceIds: convert(instanceIDs),
+	}
 
-// InstanceDetails implements a sorted type for InstanceDetail.
-type InstanceDetails []InstanceDetail
+	svc := ec2.New(p.session)
+	_, err := svc.TerminateInstances(params)
 
-func (slice InstanceDetails) Len() int {
-	return len(slice)
-}
-
-func (slice InstanceDetails) Less(i, j int) bool {
-	return slice[i].VersionNumber.LT(slice[j].VersionNumber) || slice[i].LaunchTime.Before(slice[j].LaunchTime)
-}
-
-func (slice InstanceDetails) Swap(i, j int) {
-	slice[i], slice[j] = slice[j], slice[i]
+	return err
 }
 
 func getURL(url string) (string, error) {
@@ -195,23 +213,11 @@ func getURL(url string) (string, error) {
 	return buf.String(), nil
 }
 
-// TerminateInstances terminates the given instances.
-func (p *AWSProvider) TerminateInstances(instanceIDs []string) error {
-	params := &ec2.TerminateInstancesInput{
-		InstanceIds: convert(instanceIDs),
-	}
-
-	svc := ec2.New(p.session)
-	_, err := svc.TerminateInstances(params)
-
-	return err
-}
-
 func convert(s []string) []*string {
 	rv := make([]*string, len(s))
 
 	for i, v := range s {
-		rv[i] = &v
+		rv[i] = aws.String(v)
 	}
 
 	return rv
