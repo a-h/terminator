@@ -43,11 +43,16 @@ func (group AutoScalingGroup) GetTargetInstances(canonical semver.Version, minim
     healthy,
     unhealthy)
 
-  if len(healthy) <= minimumInstanceCount {
-    fmt.Printf("%s => no action taken, not enough healthy instances\n", group.Name)
+	if len(healthy) <= minimumInstanceCount {
+    fmt.Printf("%s => not enough healthy instances\n", group.Name)
     return []string{}, nil
   }
 
+	if len(healthy) != len(group.InstanceDetails) {
+		fmt.Printf("%s => couldn't get all instance details, some instances may still be starting\n", group.Name)
+		return []string{}, nil
+	}
+	
 	fmt.Printf("%s => finding instances that don't match version %s\n", group.Name, canonical)
 	var mismatchedInstances []string
 
@@ -57,19 +62,13 @@ func (group AutoScalingGroup) GetTargetInstances(canonical semver.Version, minim
 		}
 	}
 
-	maximum := len(group.Instances) - minimumInstanceCount
-
 	if len(mismatchedInstances) == 0 {
 		fmt.Println("time: AutoScalingGroup.GetTargetInstances() ", time.Since(start))
-
-		unhealthyInstanceIds := getInstanceIDs(unhealthy)
-
-		if len(unhealthyInstanceIds) <= maximum {
-			return unhealthyInstanceIds, nil
-		}
-
-		return unhealthyInstanceIds[:maximum], nil
+		fmt.Printf("%s => no mismatched instances detected\n", group.Name)
+		return []string{}, nil
 	}
+
+	maximum := len(group.Instances) - minimumInstanceCount
 
 	// Priority order to keep (NOT terminate) instances:
 	// - Healthy, Mismatched, Unhealthy

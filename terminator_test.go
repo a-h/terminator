@@ -155,7 +155,7 @@ func TestSuite(t *testing.T) {
 		expectedTerminations []string
 	}{
 		{
-			name:           "Delete fully, regardless of health because min instance count is zero.",
+			name:           "Delete all instances in auto scaling group where all instances are healthy fully, because min instance count is zero.",
 			customVersions: map[string]string{},
 			p: parameters{
 				region:               "europa-westmoreland-1",
@@ -164,7 +164,7 @@ func TestSuite(t *testing.T) {
 				isDryRun:             false,
 				canonical:            "5.0.0",
 			},
-			expectedTerminations: []string{"A", "B", "C", "D", "E", "F", "G"},
+			expectedTerminations: []string{"D", "E", "F", "G"},
 		},
 		{
 			name:           "Only delete items in Group2, because of the filter.",
@@ -192,7 +192,7 @@ func TestSuite(t *testing.T) {
 			expectedTerminations: []string{},
 		},
 		{
-			name:           "Only delete unhealthy instances if all versions match",
+			name:           "Don't do anything to the group if all instances match the canonical version",
 			customVersions: map[string]string{},
 			p: parameters{
 				region:               "europa-westmoreland-1",
@@ -201,7 +201,7 @@ func TestSuite(t *testing.T) {
 				isDryRun:             false,
 				canonical:            "0.0.0",
 			},
-			expectedTerminations: []string{"C"},
+			expectedTerminations: []string{},
 		},
 		{
 			name:           "Don't do anything to the group if you would leave the cluster unhealthy.",
@@ -218,7 +218,7 @@ func TestSuite(t *testing.T) {
 			expectedTerminations: []string{"D", "E"},
 		},
 		{
-			name: "Delete the old versions ",
+			name: "Delete the old versions",
 			customVersions: map[string]string{
 				"A": "1.0.0",
 				"B": "1.0.0",
@@ -238,7 +238,7 @@ func TestSuite(t *testing.T) {
 			expectedTerminations: []string{"D"},
 		},
 		{
-			name: "Delete the new versions! (Canonical is set to older version)",
+			name: "Delete the new versions (Canonical is set to older version). Ignore any unhealthy groups.",
 			customVersions: map[string]string{
 				"A": "0.9.9",
 				"B": "1.0.0",
@@ -256,7 +256,7 @@ func TestSuite(t *testing.T) {
 				canonical:            "0.9.9",
 			},
 			// C isn't terminated because it's OutOfService.
-			expectedTerminations: []string{"B", "C", "D", "E", "F"},
+			expectedTerminations: []string{"D", "E", "F"},
 		},
 		{
 			name: "Don't delete too many old versions and potentially take the service down!",
