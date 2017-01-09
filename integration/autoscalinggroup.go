@@ -48,11 +48,11 @@ func (group AutoScalingGroup) GetTargetInstances(canonical semver.Version, minim
     return []string{}, nil
   }
 
-	if len(healthy) != len(group.InstanceDetails) {
+	if len(unhealthy) > 0 || len(healthy) != len(group.InstanceDetails) {
 		fmt.Printf("%s => couldn't get all instance details, some instances may still be starting\n", group.Name)
 		return []string{}, nil
 	}
-	
+
 	fmt.Printf("%s => finding instances that don't match version %s\n", group.Name, canonical)
 	var mismatchedInstances []string
 
