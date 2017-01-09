@@ -155,7 +155,7 @@ func TestSuite(t *testing.T) {
 		expectedTerminations []string
 	}{
 		{
-			name:           "Delete fully, regardless of health because min instance count is zero.",
+			name:           "Given a minimum instance count of 0, remove all unmatching instances from a healthy auto scaling group.",
 			customVersions: map[string]string{},
 			p: parameters{
 				region:               "europa-westmoreland-1",
@@ -164,7 +164,9 @@ func TestSuite(t *testing.T) {
 				isDryRun:             false,
 				canonical:            "5.0.0",
 			},
-			expectedTerminations: []string{"A", "B", "C", "D", "E", "F", "G"},
+			// Group1 has an unhealthy instance, therefore group is considered unhealthy as a whole, and ignored.
+			// All instances in Group2 don't match the canonical version of 5.0.0 and are therefore terminated.
+			expectedTerminations: []string{"D", "E", "F", "G"},
 		},
 		{
 			name:           "Only delete items in Group2, because of the filter.",
@@ -174,9 +176,10 @@ func TestSuite(t *testing.T) {
 				minimumInstanceCount: 0,
 				versionURL:           "",
 				isDryRun:             false,
-				autoScalingGroups:    []string{"Group2"}, // Filter to Group1 and Group2
+				autoScalingGroups:    []string{"Group2"}, // Filter to Group2
 				canonical:            "1.0.0",
 			},
+			// Group1 is ignored, due to the filter.
 			expectedTerminations: []string{"D", "E", "F", "G"},
 		},
 		{
@@ -192,7 +195,7 @@ func TestSuite(t *testing.T) {
 			expectedTerminations: []string{},
 		},
 		{
-			name:           "Only delete unhealthy instances if all versions match",
+			name:           "Don't do anything to the group if all instances match the canonical version",
 			customVersions: map[string]string{},
 			p: parameters{
 				region:               "europa-westmoreland-1",
@@ -201,7 +204,7 @@ func TestSuite(t *testing.T) {
 				isDryRun:             false,
 				canonical:            "0.0.0",
 			},
-			expectedTerminations: []string{"C"},
+			expectedTerminations: []string{},
 		},
 		{
 			name:           "Don't do anything to the group if you would leave the cluster unhealthy.",
@@ -218,7 +221,7 @@ func TestSuite(t *testing.T) {
 			expectedTerminations: []string{"D", "E"},
 		},
 		{
-			name: "Delete the old versions ",
+			name: "Delete the old versions",
 			customVersions: map[string]string{
 				"A": "1.0.0",
 				"B": "1.0.0",
@@ -238,7 +241,7 @@ func TestSuite(t *testing.T) {
 			expectedTerminations: []string{"D"},
 		},
 		{
-			name: "Delete the new versions! (Canonical is set to older version)",
+			name: "Delete the new versions (Canonical is set to older version). Ignore any unhealthy groups.",
 			customVersions: map[string]string{
 				"A": "0.9.9",
 				"B": "1.0.0",
@@ -255,8 +258,9 @@ func TestSuite(t *testing.T) {
 				isDryRun:             false,
 				canonical:            "0.9.9",
 			},
-			// C isn't terminated because it's OutOfService.
-			expectedTerminations: []string{"B", "C", "D", "E", "F"},
+			// Group1 is ignored because C is OutOfService.
+			// G remains inservice, as it matches the canonical version.
+			expectedTerminations: []string{"D", "E", "F"},
 		},
 		{
 			name: "Don't delete too many old versions and potentially take the service down!",
