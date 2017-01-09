@@ -155,7 +155,7 @@ func TestSuite(t *testing.T) {
 		expectedTerminations []string
 	}{
 		{
-			name:           "Delete all instances in auto scaling group where all instances are healthy fully, because min instance count is zero.",
+			name:           "Given a minimum instance count of 0, remove all unmatching instances from a healthy auto scaling group.",
 			customVersions: map[string]string{},
 			p: parameters{
 				region:               "europa-westmoreland-1",
@@ -164,6 +164,8 @@ func TestSuite(t *testing.T) {
 				isDryRun:             false,
 				canonical:            "5.0.0",
 			},
+			// Group1 has an unhealthy instance, therefore group is considered unhealthy as a whole, and ignored.
+			// All instances in Group2 don't match the canonical version of 5.0.0 and are therefore terminated.
 			expectedTerminations: []string{"D", "E", "F", "G"},
 		},
 		{
@@ -174,9 +176,10 @@ func TestSuite(t *testing.T) {
 				minimumInstanceCount: 0,
 				versionURL:           "",
 				isDryRun:             false,
-				autoScalingGroups:    []string{"Group2"}, // Filter to Group1 and Group2
+				autoScalingGroups:    []string{"Group2"}, // Filter to Group2
 				canonical:            "1.0.0",
 			},
+			// Group1 is ignored, due to the filter.
 			expectedTerminations: []string{"D", "E", "F", "G"},
 		},
 		{
@@ -255,7 +258,8 @@ func TestSuite(t *testing.T) {
 				isDryRun:             false,
 				canonical:            "0.9.9",
 			},
-			// C isn't terminated because it's OutOfService.
+			// Group1 is ignored because C is OutOfService.
+			// G remains inservice, as it matches the canonical version.
 			expectedTerminations: []string{"D", "E", "F"},
 		},
 		{

@@ -15,6 +15,12 @@ func terminate(cloud integration.CloudProvider, p parameters) []string {
 		fmt.Println("Terminator activated. Searching for Sarah Connor...")
 	}
 
+	canonicalVersion, err := semver.Make(p.canonical)
+	if err != nil {
+		fmt.Errorf("Failed to parse canonical version, %+v\n", err)
+		return []string{}
+	}
+
 	terminatedInstances := []string{}
 
 	groups, err := cloud.DescribeAutoScalingGroups(
@@ -25,16 +31,10 @@ func terminate(cloud integration.CloudProvider, p parameters) []string {
 
 	if err != nil {
 		fmt.Printf("Failed to get auto scaling groups, %+v. Exiting...\n", err)
-		return nil
+		return []string{}
 	}
 
 	fmt.Println("Working on groups ", getGroupNames(groups))
-
-	canonicalVersion, err := semver.Make(p.canonical)
-	if err != nil {
-		fmt.Errorf("Failed to parse canonical version, %+v\n", err)
-		return nil
-	}
 
 	for _, g := range groups {
 		targets, err := g.GetTargetInstances(canonicalVersion, p.minimumInstanceCount)
